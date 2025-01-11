@@ -1,0 +1,34 @@
+name: Re-trigger PR Status Checks on Master Merge
+
+on:
+  push:
+    branches:
+      - master # Löst aus, wenn in den master-Branch gepusht wird
+
+jobs:
+  retrigger-checks:
+    name: Re-trigger Checks on PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch open Pull Requests targeting master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Hole alle offenen Pull Requests mit `master` als Ziel
+          PRS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/pulls?state=open&base=master")
+          
+          # Iteriere über die PRs und triggere Status-Checks
+          for pr in $(echo "$PRS" | jq -r '.[].head.sha'); do
+            echo "Re-triggering checks for PR with SHA: $pr"
+
+            # Verwende die Checks API, um den Status-Check zu re-triggern
+            curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+                -H "Accept: application/vnd.github.v3+json" \
+                -d '{
+                  "name": "pr-check",
+                  "head_sha": "'"$pr"'",
+                  "status": "queued"
+                }' \
+                "https://api.github.com/repos/${{ github.repository }}/check-runs"
+          done
