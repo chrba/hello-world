@@ -13,23 +13,26 @@ jobs:
     name: pr
     runs-on: ubuntu-latest
     steps:
-      # Check out the code from the pull request branch
+      # Check out the pull request branch
       - name: Check out pull request branch
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0 # Hole vollständige Branch-Historie (falls nötig)
 
-      # Fetch the master branch to read the file from there
-      - name: Fetch master branch
-        run: |
-          git fetch origin master:master
+      # Check out the master branch in a different directory
+      - name: Check out master branch
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.repository }}
+          ref: master
+          path: master-branch # Klone in ein separates Verzeichnis
 
-      # Read the file from the master branch
+      # Read the root file from the master branch
       - name: Read root file from master branch
         run: |
-          git checkout master
-          if [ -f ./rootfile ]; then
-            CONTENT=$(cat ./rootfile)
+          if [ -f master-branch/rootfile ]; then
+            CONTENT=$(cat master-branch/rootfile)
             echo "File content: $CONTENT"
             if [ "$CONTENT" = "1" ]; then
               echo "File contains 1. Failing the workflow."
