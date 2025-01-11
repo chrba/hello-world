@@ -2,7 +2,11 @@ name: pr
 
 on:
   pull_request: # Automatischer Trigger bei Pull Requests
-  workflow_dispatch: # Manueller Trigger
+  workflow_dispatch: # Manueller Triggerpush: 
+  push: # Trigger bei Änderungen am Branch
+    branches:
+      - master # Nur wenn in master gepusht wird
+
 
 jobs:
   lint:
