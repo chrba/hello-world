@@ -1,13 +1,13 @@
-name: Re-trigger Existing PR Checks
+name: Re-trigger Existing PR Jobs
 
 on:
   push:
     branches:
-      - master # Löst aus, wenn in den master-Branch gepusht wird
+      - master # Auslösen bei Änderungen im master-Branch
 
 jobs:
-  retrigger-checks:
-    name: Re-trigger Existing Checks
+  retrigger-jobs:
+    name: Re-trigger Existing Jobs
     runs-on: ubuntu-latest
     steps:
       - name: Fetch open Pull Requests targeting master
@@ -17,19 +17,23 @@ jobs:
           # Hole alle offenen Pull Requests mit `master` als Ziel
           PRS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
               "https://api.github.com/repos/${{ github.repository }}/pulls?state=open&base=master")
-          
-          # Iteriere über die PRs und hole die Checks
-          for pr in $(echo "$PRS" | jq -r '.[].head.sha'); do
-            echo "Fetching checks for PR with SHA: $pr"
 
-            # Hole bestehende Checks für den Commit
-            CHECKS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-                "https://api.github.com/repos/${{ github.repository }}/commits/$pr/check-runs")
+          # Iteriere über die PRs und hole die Workflow-Runs
+          for pr_branch in $(echo "$PRS" | jq -r '.[].head.ref'); do
+            echo "Fetching Workflow-Runs for PR branch: $pr_branch"
 
-            # Iteriere über die vorhandenen Checks und trigger sie neu
-            echo "$CHECKS" | jq -r '.check_runs[] | select(.status == "completed") | .id' | while read check_id; do
-              echo "Re-triggering check run ID: $check_id"
-              curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" \
-                  "https://api.github.com/repos/${{ github.repository }}/check-runs/$check_id/rerequest"
+            # Hole die Workflow-Runs für den PR-Branch
+            RUNS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs?branch=$pr_branch&status=completed")
+
+            # Iteriere über die Runs und hole die Job-IDs
+            echo "$RUNS" | jq -r '.workflow_runs[].jobs_url' | while read jobs_url; do
+              JOBS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$jobs_url")
+              echo "$JOBS" | jq -r '.jobs[].id' | while read job_id; do
+                echo "Re-triggering job ID: $job_id"
+                curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+                    -H "Accept: application/vnd.github+json" \
+                    "https://api.github.com/repos/${{ github.repository }}/actions/jobs/$job_id/rerun"
+              done
             done
           done
