@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master # Löst aus, wenn in den master-Branch gepusht wird
+  workflow_dispatch: # Manueller Triggerpush: 
+
 
 jobs:
   retrigger-checks:
