@@ -1,12 +1,42 @@
-name: pr
+name: pr-check
 
 on:
   pull_request: # Automatischer Trigger bei Pull Requests
   workflow_dispatch: # Manueller Trigger
 
 jobs:
-  lint:
-    name: pr
+  check-root-file:
+    name: Check Root File
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Hello"
+      # Check out the code from the pull request branch
+      - name: Check out pull request branch
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      # Fetch the master branch to read the file from there
+      - name: Fetch master branch
+        run: |
+          git fetch origin master:master
+
+      # Read the file from the master branch
+      - name: Read root file from master branch
+        run: |
+          git checkout master
+          if [ -f ./rootfile ]; then
+            CONTENT=$(cat ./rootfile)
+            echo "File content: $CONTENT"
+            if [ "$CONTENT" = "1" ]; then
+              echo "File contains 1. Failing the workflow."
+              exit 1
+            elif [ "$CONTENT" = "0" ]; then
+              echo "File contains 0. Workflow will succeed."
+            else
+              echo "File contains unexpected content: $CONTENT. Failing the workflow."
+              exit 1
+            fi
+          else
+            echo "File does not exist in the root directory. Failing the workflow."
+            exit 1
+          fi
